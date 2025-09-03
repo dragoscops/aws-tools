@@ -13,7 +13,19 @@
       - [5. Get JSON output for scripting](#5-get-json-output-for-scripting)
     - [Options](#options)
     - [Output Formats](#output-formats)
+    - [Prerequisites](#prerequisites)
   - [eks-attach.sh](#eks-attachsh)
+    - [Remote Usage](#remote-usage-1)
+      - [1. Connect to EKS cluster](#1-connect-to-eks-cluster)
+      - [2. Connect with role assumption](#2-connect-with-role-assumption)
+      - [3. Connect and launch k9s](#3-connect-and-launch-k9s)
+    - [Local Usage](#local-usage-1)
+      - [1. Basic EKS connection (local)](#1-basic-eks-connection-local)
+      - [2. Connect with role assumption (local)](#2-connect-with-role-assumption-local)
+      - [3. Connect and launch k9s (local)](#3-connect-and-launch-k9s-local)
+      - [4. Advanced usage examples](#4-advanced-usage-examples)
+    - [Options](#options-1)
+    - [Prerequisites](#prerequisites-1)
 
 
 ## get-creds.sh
@@ -104,9 +116,101 @@ aws-creds --profile production --format json | jq .AccessKeyId
 - `eval` - Export statements for eval usage
 - `export` - Direct exports (use with source)
 
+### Prerequisites
+
+- AWS CLI installed and configured
+- `jq` installed (for JSON processing in some examples)
+- Valid AWS SSO configuration or existing AWS credentials
+- Bash or Zsh shell (for sourcing functionality)
+
 ## eks-attach.sh
+
+EKS cluster connection script that automatically configures kubectl and optionally assumes IAM roles for access.
+
+### Remote Usage
+
+Execute directly from GitHub without downloading:
+
+#### 1. Connect to EKS cluster
 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/dragoscops/aws-tools/refs/heads/main/eks-attach.sh) \
-  --cluster-name <NAME> --region <REGION> [--k9s][--role-arn <ARN>]
+  --cluster-name my-cluster --region us-west-2
 ```
+
+#### 2. Connect with role assumption
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/dragoscops/aws-tools/refs/heads/main/eks-attach.sh) \
+  --cluster-name my-cluster --region us-west-2 \
+  --role-arn arn:aws:iam::123456789012:role/EKSAdminRole
+```
+
+#### 3. Connect and launch k9s
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/dragoscops/aws-tools/refs/heads/main/eks-attach.sh) \
+  --cluster-name my-cluster --region us-west-2 --k9s
+```
+
+### Local Usage
+
+For repeated use, clone the repository first:
+
+```bash
+# Clone the repository
+git clone https://github.com/dragoscops/aws-tools.git
+cd aws-tools
+
+# Make script executable
+chmod +x eks-attach.sh
+```
+
+#### 1. Basic EKS connection (local)
+
+```bash
+./eks-attach.sh --cluster-name my-cluster --region us-west-2
+```
+
+#### 2. Connect with role assumption (local)
+
+```bash
+./eks-attach.sh --cluster-name my-cluster --region us-west-2 \
+  --role-arn arn:aws:iam::123456789012:role/EKSAdminRole
+```
+
+#### 3. Connect and launch k9s (local)
+
+```bash
+./eks-attach.sh --cluster-name my-cluster --region us-west-2 --k9s
+```
+
+#### 4. Advanced usage examples
+
+```bash
+# Connect to production cluster with cross-account role
+./eks-attach.sh \
+  --cluster-name prod-cluster \
+  --region eu-west-1 \
+  --role-arn arn:aws:iam::987654321098:role/CrossAccountEKSRole \
+  --k9s
+
+# Connect to development cluster (same account)
+./eks-attach.sh --cluster-name dev-cluster --region us-east-1
+```
+
+### Options
+
+- `--cluster-name NAME` - EKS cluster name (required)
+- `--region REGION` - AWS region where the cluster is located (required)
+- `--role-arn ARN` - IAM role ARN to assume for cluster access (optional)
+- `--k9s` - Launch k9s terminal UI after connecting (optional)
+
+### Prerequisites
+
+- AWS CLI installed and configured
+- `kubectl` installed
+- `jq` installed (for role assumption)
+- `k9s` installed (optional, only if using `--k9s` flag)
+- Bash or Zsh shell (for sourcing functionality)
+- Valid AWS credentials or SSO session
