@@ -22,7 +22,12 @@
 #   export  - Export variables to current shell (source this script)
 #
 
-set -euo pipefail
+# Use safer error handling - exit on error only when not sourced
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
+  set -euo pipefail
+else
+  set -eo pipefail
+fi
 
 # Global constants
 readonly SCRIPT_NAME="$(basename "${0}")"
@@ -44,7 +49,7 @@ readonly DEFAULT_PROFILE="default"
 #   Usage information to stdout
 #######################################
 usage() {
-  cat << EOF
+  cat <<EOF
 Usage: ${SCRIPT_NAME} [OPTIONS]
 
 AWS SSO Credential Management Script
@@ -120,39 +125,39 @@ parse_arguments() {
 
   while [[ $# -gt 0 ]]; do
     case "${1}" in
-      --profile|-p)
-        [[ -n "${2:-}" ]] || error_exit "Profile name required"
-        PROFILE="${2}"
-        shift 2
-        ;;
-      --region|-r)
-        [[ -n "${2:-}" ]] || error_exit "Region name required"
-        REGION="${2}"
-        shift 2
-        ;;
-      --format|-f)
-        [[ -n "${2:-}" ]] || error_exit "Format required"
-        case "${2}" in
-          env|json|eval|export)
-            FORMAT="${2}"
-            ;;
-          *)
-            error_exit "Invalid format: ${2}. Must be one of: env, json, eval, export"
-            ;;
-        esac
-        shift 2
-        ;;
-      --configure)
-        CONFIGURE_FLAG="true"
-        shift
-        ;;
-      --help|-h)
-        usage
-        exit 0
+    --profile | -p)
+      [[ -n "${2:-}" ]] || error_exit "Profile name required"
+      PROFILE="${2}"
+      shift 2
+      ;;
+    --region | -r)
+      [[ -n "${2:-}" ]] || error_exit "Region name required"
+      REGION="${2}"
+      shift 2
+      ;;
+    --format | -f)
+      [[ -n "${2:-}" ]] || error_exit "Format required"
+      case "${2}" in
+      env | json | eval | export)
+        FORMAT="${2}"
         ;;
       *)
-        error_exit "Unknown option: ${1}. Use --help for usage information."
+        error_exit "Invalid format: ${2}. Must be one of: env, json, eval, export"
         ;;
+      esac
+      shift 2
+      ;;
+    --configure)
+      CONFIGURE_FLAG="true"
+      shift
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
+    *)
+      error_exit "Unknown option: ${1}. Use --help for usage information."
+      ;;
     esac
   done
 
@@ -309,8 +314,8 @@ output_credentials() {
   expiration_formatted=$(format_expiration_time "${AWS_CREDENTIAL_EXPIRATION}")
 
   case "${format}" in
-    env)
-      cat << EOF
+  env)
+    cat <<EOF
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
@@ -319,11 +324,11 @@ AWS_REGION=${REGION}
 AWS_PROFILE=${PROFILE}
 AWS_CREDENTIAL_EXPIRATION=${AWS_CREDENTIAL_EXPIRATION}
 EOF
-      info "Credentials valid until: ${expiration_formatted}"
-      ;;
+    info "Credentials valid until: ${expiration_formatted}"
+    ;;
 
-    json)
-      cat << EOF
+  json)
+    cat <<EOF
 {
   "AccessKeyId": "${AWS_ACCESS_KEY_ID}",
   "SecretAccessKey": "${AWS_SECRET_ACCESS_KEY}",
@@ -333,10 +338,10 @@ EOF
   "Expiration": "${AWS_CREDENTIAL_EXPIRATION}"
 }
 EOF
-      ;;
+    ;;
 
-    eval)
-      cat << EOF
+  eval)
+    cat <<EOF
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
 export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
@@ -345,23 +350,23 @@ export AWS_REGION="${REGION}"
 export AWS_PROFILE="${PROFILE}"
 export AWS_CREDENTIAL_EXPIRATION="${AWS_CREDENTIAL_EXPIRATION}"
 EOF
-      info "Credentials valid until: ${expiration_formatted}"
-      info "Run: eval \"\$(${SCRIPT_NAME} --profile ${PROFILE} --format eval)\""
-      ;;
+    info "Credentials valid until: ${expiration_formatted}"
+    info "Run: eval \"\$(${SCRIPT_NAME} --profile ${PROFILE} --format eval)\""
+    ;;
 
-    export)
-      export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-      export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-      export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
-      export AWS_DEFAULT_REGION="${REGION}"
-      export AWS_REGION="${REGION}"
-      export AWS_PROFILE="${PROFILE}"
-      export AWS_CREDENTIAL_EXPIRATION="${AWS_CREDENTIAL_EXPIRATION}"
+  export)
+    export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+    export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+    export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
+    export AWS_DEFAULT_REGION="${REGION}"
+    export AWS_REGION="${REGION}"
+    export AWS_PROFILE="${PROFILE}"
+    export AWS_CREDENTIAL_EXPIRATION="${AWS_CREDENTIAL_EXPIRATION}"
 
-      info "Credentials exported to current shell environment"
-      info "Credentials valid until: ${expiration_formatted}"
-      info "Profile: ${PROFILE}, Region: ${REGION}"
-      ;;
+    info "Credentials exported to current shell environment"
+    info "Credentials valid until: ${expiration_formatted}"
+    info "Profile: ${PROFILE}, Region: ${REGION}"
+    ;;
   esac
 }
 
@@ -370,7 +375,7 @@ EOF
 # Arguments:
 #   Command line arguments
 #######################################
-main() {
+aws-creds() {
   parse_arguments "$@"
   check_aws_cli
 
@@ -389,7 +394,12 @@ main() {
   output_credentials "${FORMAT}"
 }
 
-# Execute main function if script is run directly (not sourced)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+main() {
+  aws-creds "$@"
+}
+
+# Execute main function only when script is run directly (not sourced)
+# Use safer detection to prevent terminal crashes
+if [[ "${0##*/}" == "get-creds.sh" ]] && [[ "${BASH_SOURCE[0]:-}" == "${0}" ]] 2>/dev/null; then
   main "$@"
 fi

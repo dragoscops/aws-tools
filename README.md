@@ -5,7 +5,12 @@
     - [Remote Usage](#remote-usage)
       - [1. Save environment variables to file](#1-save-environment-variables-to-file)
       - [2. Evaluate and export to current shell](#2-evaluate-and-export-to-current-shell)
-      - [3. Source directly (for bash/zsh compatibility)](#3-source-directly-for-bashzsh-compatibility)
+    - [Local Usage](#local-usage)
+      - [1. Save environment variables to file (local)](#1-save-environment-variables-to-file-local)
+      - [2. Evaluate and export to current shell (local)](#2-evaluate-and-export-to-current-shell-local)
+      - [3. Source and use function (bash/zsh only)](#3-source-and-use-function-bashzsh-only)
+      - [4. Configure new SSO profile](#4-configure-new-sso-profile)
+      - [5. Get JSON output for scripting](#5-get-json-output-for-scripting)
     - [Options](#options)
     - [Output Formats](#output-formats)
   - [eks-attach.sh](#eks-attachsh)
@@ -22,25 +27,66 @@ Execute directly from GitHub without downloading:
 #### 1. Save environment variables to file
 
 ```bash
-PROFILE=default \
 bash <(curl -sSL https://raw.githubusercontent.com/dragoscops/aws-tools/refs/heads/main/get-creds.sh) \
-  --profile $PROFILE --format env >> .env
+  --profile default --format env >> .env
 ```
 
 #### 2. Evaluate and export to current shell
 
 ```bash
-PROFILE=default \
 eval "$(bash <(curl -sSL https://raw.githubusercontent.com/dragoscops/aws-tools/refs/heads/main/get-creds.sh) \
-  --profile $PROFILE --format eval)"
+  --profile default --format eval)"
 ```
 
-#### 3. Source directly (for bash/zsh compatibility)
+### Local Usage
+
+For full functionality including sourcing, clone the repository first:
 
 ```bash
-PROFILE=default \
-source <(curl -sSL https://raw.githubusercontent.com/dragoscops/aws-tools/refs/heads/main/get-creds.sh) \
-  --profile $PROFILE --format export
+# Clone the repository
+git clone https://github.com/dragoscops/aws-tools.git
+cd aws-tools
+
+# Make script executable
+chmod +x get-creds.sh
+```
+
+#### 1. Save environment variables to file (local)
+
+```bash
+./get-creds.sh --profile default --format env >> .env
+```
+
+#### 2. Evaluate and export to current shell (local)
+
+```bash
+eval "$(./get-creds.sh --profile default --format eval)"
+```
+
+#### 3. Source and use function (bash/zsh only)
+
+```bash
+# Source the script to load the aws-creds function
+source ./get-creds.sh
+
+# Then call the function with desired options
+aws-creds --profile default --format export
+```
+
+#### 4. Configure new SSO profile
+
+```bash
+./get-creds.sh --configure --profile staging
+# Or using the function after sourcing
+aws-creds --configure --profile staging
+```
+
+#### 5. Get JSON output for scripting
+
+```bash
+./get-creds.sh --profile production --format json | jq .AccessKeyId
+# Or using the function after sourcing
+aws-creds --profile production --format json | jq .AccessKeyId
 ```
 
 ### Options
