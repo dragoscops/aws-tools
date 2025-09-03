@@ -39,6 +39,9 @@ readonly DEFAULT_REGION="us-east-1"
 readonly DEFAULT_FORMAT="env"
 readonly DEFAULT_PROFILE="default"
 
+# Global flag to control info message output (set to false for eval format)
+SUPPRESS_INFO="false"
+
 #######################################
 # Print usage information
 # Globals:
@@ -59,6 +62,7 @@ OPTIONS:
   --region REGION      AWS region (default: \$AWS_REGION or 'us-east-1')
   --format FORMAT      Output format: env|json|eval|export (default: env)
   --configure          Force SSO profile configuration
+  --refresh            Force credential refresh (ignore cached credentials)
   --help              Show this help message
 
 OUTPUT FORMATS:
@@ -71,6 +75,7 @@ EXAMPLES:
   ${SCRIPT_NAME} --profile dev --format eval
   source ${SCRIPT_NAME} --profile prod --format export
   ${SCRIPT_NAME} --configure --profile staging
+  ${SCRIPT_NAME} --profile prod --refresh  # Force refresh
 EOF
 }
 
@@ -94,7 +99,9 @@ error_exit() {
 #   Info message to stderr
 #######################################
 info() {
-  echo "INFO: ${1}" >&2
+  if [[ "${SUPPRESS_INFO}" != "true" ]]; then
+    echo "INFO: ${1}" >&2
+  fi
 }
 
 #######################################
@@ -122,6 +129,7 @@ parse_arguments() {
   REGION="${AWS_REGION:-${DEFAULT_REGION}}"
   FORMAT="${DEFAULT_FORMAT}"
   CONFIGURE_FLAG="false"
+  REFRESH_FLAG="false"
 
   while [[ $# -gt 0 ]]; do
     case "${1}" in
@@ -151,6 +159,10 @@ parse_arguments() {
       CONFIGURE_FLAG="true"
       shift
       ;;
+    --refresh)
+      REFRESH_FLAG="true"
+      shift
+      ;;
     --help | -h)
       usage
       exit 0
@@ -161,7 +173,7 @@ parse_arguments() {
     esac
   done
 
-  readonly PROFILE REGION FORMAT CONFIGURE_FLAG
+  readonly PROFILE REGION FORMAT CONFIGURE_FLAG REFRESH_FLAG
 }
 
 #######################################
@@ -238,15 +250,43 @@ get_aws_credentials() {
 
   info "Attempting to get credentials for profile: ${profile}"
 
-  # Try to get credentials without login first
-  if creds_output=$(aws configure export-credentials --profile "${profile}" --format env 2>/dev/null); then
+  # Check if refresh is forced or try cached credentials
+  if [[ "${REFRESH_FLAG}" == "true" ]]; then
+    info "Refresh requested - skipping cached credentials"
+
+    # Force logout to clear any cached SSO tokens and credentials
+    info "Clearing cached SSO session and credentials..."
+    if [[ "${FORMAT}" == "eval" ]]; then
+      aws sso logout >&2 2>/dev/null || true  # Don't fail if already logged out
+    else
+      aws sso logout 2>/dev/null || true  # Don't fail if already logged out
+    fi
+
+    creds_output=""
+  else
+    # Try to get credentials without login first
+    creds_output=$(aws configure export-credentials --profile "${profile}" --format env 2>/dev/null) || creds_output=""
+  fi
+
+  if [[ -n "${creds_output}" ]]; then
     info "Using cached credentials for profile: ${profile}"
   else
-    info "Cached credentials expired or not found. Initiating SSO login..."
+    if [[ "${REFRESH_FLAG}" == "true" ]]; then
+      info "Forcing credential refresh for profile: ${profile}"
+    else
+      info "Cached credentials expired or not found. Initiating SSO login..."
+    fi
 
     # Attempt SSO login
-    if ! aws sso login --profile "${profile}"; then
-      error_exit "SSO login failed for profile: ${profile}"
+    # Redirect stdout to stderr for eval format to prevent parse errors
+    if [[ "${FORMAT}" == "eval" ]]; then
+      if ! aws sso login --profile "${profile}" >&2; then
+        error_exit "SSO login failed for profile: ${profile}"
+      fi
+    else
+      if ! aws sso login --profile "${profile}"; then
+        error_exit "SSO login failed for profile: ${profile}"
+      fi
     fi
 
     # Try to get credentials again after login
@@ -350,8 +390,7 @@ export AWS_REGION="${REGION}"
 export AWS_PROFILE="${PROFILE}"
 export AWS_CREDENTIAL_EXPIRATION="${AWS_CREDENTIAL_EXPIRATION}"
 EOF
-    info "Credentials valid until: ${expiration_formatted}"
-    info "Run: eval \"\$(${SCRIPT_NAME} --profile ${PROFILE} --format eval)\""
+    # Note: No info messages for eval format to avoid interference with eval parsing
     ;;
 
   export)
@@ -379,6 +418,11 @@ aws-creds() {
   parse_arguments "$@"
   check_aws_cli
 
+  # Suppress info messages for eval format to prevent parse errors
+  if [[ "${FORMAT}" == "eval" ]]; then
+    SUPPRESS_INFO="true"
+  fi
+
   # Check if profile exists or needs configuration
   if [[ "${CONFIGURE_FLAG}" == "true" ]] || ! profile_exists "${PROFILE}"; then
     if [[ "${CONFIGURE_FLAG}" == "false" ]]; then
@@ -400,6 +444,6 @@ main() {
 
 # Execute main function only when script is run directly (not sourced)
 # Use safer detection to prevent terminal crashes
-if [[ "${0##*/}" == "get-creds.sh" ]] && [[ "${BASH_SOURCE[0]:-}" == "${0}" ]] 2>/dev/null; then
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]] 2>/dev/null; then
   main "$@"
 fi
