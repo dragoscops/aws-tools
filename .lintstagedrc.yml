@@ -1,0 +1,11 @@
+# lint-staged configuration
+# Runs linting and formatting on staged files only
+
+# Markdown files
+"**/*.md":
+  - "npx prettier --write"
+  - "npx eslint --fix --stats --no-warn-ignored"
+# Shell script files
+".cwai/**/*.sh":
+  # - "shfmt -i 2 -ci -bn -sr -w -d" # TODO: debate whether shfmt is still necessary
+  - "shellcheck -x --severity=style --format=tty"

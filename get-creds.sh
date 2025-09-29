@@ -32,7 +32,6 @@ fi
 # Global constants
 readonly SCRIPT_NAME="$(basename "${0}")"
 readonly AWS_CONFIG_FILE="${HOME}/.aws/config"
-readonly AWS_CREDENTIALS_FILE="${HOME}/.aws/credentials"
 
 # Default values
 readonly DEFAULT_REGION="us-east-1"
@@ -212,13 +211,11 @@ profile_exists() {
 # Configure SSO profile interactively
 # Arguments:
 #   Profile name
-#   Region
 # Returns:
 #   0 on success, exits on failure
 #######################################
 configure_sso_profile() {
   local profile="${1}"
-  local region="${2}"
 
   info "Configuring SSO profile: ${profile}"
 
@@ -406,6 +403,9 @@ EOF
     info "Credentials valid until: ${expiration_formatted}"
     info "Profile: ${PROFILE}, Region: ${REGION}"
     ;;
+  *)
+    error_exit "Invalid format: ${format}. Must be one of: env, json, eval, export"
+    ;;
   esac
 }
 
@@ -430,7 +430,7 @@ aws-creds() {
       info "Run with --configure to set up SSO profile interactively"
       error_exit "Profile configuration required"
     fi
-    configure_sso_profile "${PROFILE}" "${REGION}"
+    configure_sso_profile "${PROFILE}"
   fi
 
   # Get and output credentials

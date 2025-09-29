@@ -1,0 +1,52 @@
+version: "3"
+
+tasks:
+  lint:
+    cmds:
+      - task: which
+      - task: lint:bash
+      - task: lint:markdown
+    desc: "Lint All Code"
+    summary: |
+      Run example:
+        task lint
+
+  lint:bash:
+    cmds:
+      - |
+        find . -iname "*.sh" -not -path "./node_modules/*" -not -path "./.husky/*" \
+          | while read -r f; do
+              shellcheck -x --severity=style --format=diff "$f" | git apply --allow-empty
+              shellcheck -x --severity=style --format=tty "$f"
+              if git diff --quiet -- "$f"; then
+                printf '\033[90m'
+              else
+                printf '\033[37m'
+              fi
+              printf '%s\n' "${f#\.\//}"
+              printf '\033[0m'
+            done
+        echo "✅ Bash Linting Done."
+    desc: "Lint Bash"
+    silent: true
+    summary: |
+      Run example:
+        task lint:bash
+
+  lint:markdown:
+    cmds:
+      - npx prettier ./**/*.md --write
+      - npx eslint ./**/*.md --fix --stats --no-warn-ignored
+      - echo "✅ Markdown Linting Done."
+    desc: "Lint Markdown"
+    summary: |
+      Run example:
+        task lint:markdown
+    silent: true
+
+  which:
+    cmds:
+      - if ! command -v npx 2>&1 >/dev/null; then echo "npx commmand is not present; please install nodejs"; exit 1; fi
+      - if ! command -v shellcheck 2>&1 >/dev/null; then echo "shellcheck commmand is not present; please install shellcheck"; exit 1; fi
+    desc: "Testing necessary commands exist"
+    silent: true

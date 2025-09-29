@@ -14,6 +14,7 @@ readonly PROFILE="${1:-default}"
 # Download and source assert.sh framework
 readonly ASSERT_SCRIPT="$(mktemp)"
 curl -sSL https://raw.githubusercontent.com/lehmannro/assert.sh/master/assert.sh -o "${ASSERT_SCRIPT}"
+# shellcheck source=/dev/null
 source "${ASSERT_SCRIPT}"
 
 # Test constants
