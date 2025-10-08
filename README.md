@@ -27,7 +27,6 @@
     - [Options](#options-1)
     - [Prerequisites](#prerequisites-1)
 
-
 ## get-creds.sh
 
 AWS SSO credential management script with automatic profile configuration and multiple export formats.
@@ -121,7 +120,7 @@ aws-creds --profile production --format json | jq .AccessKeyId
 - AWS CLI installed and configured
 - `jq` installed (for JSON processing in some examples)
 - Valid AWS SSO configuration or existing AWS credentials
-- Bash or Zsh shell (for sourcing functionality)
+- Bash shell (Google Bash Style Guide compliant)
 
 ## eks-attach.sh
 
@@ -212,5 +211,5 @@ chmod +x eks-attach.sh
 - `kubectl` installed
 - `jq` installed (for role assumption)
 - `k9s` installed (optional, only if using `--k9s` flag)
-- Bash or Zsh shell (for sourcing functionality)
+- Bash shell (Google Bash Style Guide compliant)
 - Valid AWS credentials or SSO session
